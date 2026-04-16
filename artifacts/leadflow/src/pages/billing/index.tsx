@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Zap, Crown, Star, Shield, AlertCircle, ExternalLink, Clock } from "lucide-react";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@/lib/auth";
 
 const PLAN_LABELS: Record<string, string> = {
   trial: "/ 3 days",
@@ -13,26 +13,15 @@ const PLAN_LABELS: Record<string, string> = {
   yearly: "/ year",
 };
 
-function PlanCard({
-  plan,
-  isCurrentPlan,
-  userEmail,
-  userName,
-}: {
-  plan: any;
-  isCurrentPlan: boolean;
-  userEmail: string;
-  userName: string;
+function PlanCard({ plan, isCurrentPlan, userEmail, userName }: {
+  plan: any; isCurrentPlan: boolean; userEmail: string; userName: string;
 }) {
   const paymentUrl = plan.paymentUrl
     ? `${plan.paymentUrl}?prefill[email]=${encodeURIComponent(userEmail)}&prefill[name]=${encodeURIComponent(userName)}`
     : null;
 
   return (
-    <Card
-      className={`relative flex flex-col ${isCurrentPlan ? "border-primary ring-2 ring-primary" : ""} ${plan.isPopular ? "border-primary/50 shadow-md" : ""}`}
-      data-testid={`card-plan-${plan.id}`}
-    >
+    <Card className={`relative flex flex-col ${isCurrentPlan ? "border-primary ring-2 ring-primary" : ""} ${plan.isPopular ? "border-primary/50 shadow-md" : ""}`}>
       {plan.isPopular && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <Badge className="bg-primary text-primary-foreground px-3 py-0.5 shadow">
@@ -70,29 +59,20 @@ function PlanCard({
             </li>
           ))}
         </ul>
-
         {isCurrentPlan ? (
           <Button className="w-full" variant="outline" disabled>
             <CheckCircle2 className="h-4 w-4 mr-2" /> Current Plan
           </Button>
         ) : paymentUrl ? (
-          <Button
-            className="w-full font-semibold"
-            variant={plan.isPopular ? "default" : "outline"}
-            asChild
-            data-testid={`btn-plan-${plan.id}`}
-          >
+          <Button className="w-full font-semibold" variant={plan.isPopular ? "default" : "outline"} asChild>
             <a href={paymentUrl} target="_blank" rel="noopener noreferrer">
               {plan.id === "trial" ? "Start Trial — ₹5" : `Buy Now — ₹${plan.price}`}
               <ExternalLink className="h-3.5 w-3.5 ml-2 opacity-70" />
             </a>
           </Button>
         ) : (
-          <Button className="w-full" variant="outline" disabled>
-            Pay Now — ₹{plan.price}
-          </Button>
+          <Button className="w-full" variant="outline" disabled>Pay Now — ₹{plan.price}</Button>
         )}
-
         {!isCurrentPlan && (
           <p className="text-xs text-muted-foreground text-center mt-2 flex items-center justify-center gap-1">
             <Shield className="h-3 w-3" /> UPI · Cards · Net Banking · Wallets
@@ -107,10 +87,10 @@ export default function Billing() {
   const { data: plans, isLoading: plansLoading } = useGetBillingPlans();
   const { data: subscription } = useGetSubscription();
   const { data: creditHistory, isLoading: historyLoading } = useGetCreditsHistory();
-  const { user } = useUser();
+  const { user } = useAuth();
 
-  const userEmail = user?.primaryEmailAddress?.emailAddress || "";
-  const userName = user?.fullName || user?.firstName || "ALKABRAIN User";
+  const userEmail = user?.email || "";
+  const userName = user?.displayName || user?.email?.split("@")[0] || "ALKABRAIN User";
 
   return (
     <div className="space-y-8">
@@ -118,8 +98,6 @@ export default function Billing() {
         <h1 className="text-2xl font-bold text-foreground">Billing & Plans</h1>
         <p className="text-muted-foreground mt-1">Choose a plan to unlock more credits and features</p>
       </div>
-
-      {/* Active plan banner */}
       {subscription?.isActive && (
         <Card className="border-green-200 bg-green-50 dark:bg-green-950">
           <CardContent className="p-5 flex items-center justify-between gap-4 flex-wrap">
@@ -141,8 +119,6 @@ export default function Billing() {
           </CardContent>
         </Card>
       )}
-
-      {/* How it works */}
       <Card className="bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-800">
         <CardContent className="p-4 flex items-start gap-3">
           <Shield className="h-5 w-5 text-indigo-600 dark:text-indigo-400 flex-shrink-0 mt-0.5" />
@@ -151,13 +127,10 @@ export default function Billing() {
             <p className="text-indigo-700 dark:text-indigo-300 mt-1">
               Click "Buy Now" → Razorpay payment page opens → Pay via UPI / Card / Net Banking →
               Credits are automatically added to your account within seconds.
-              Your email is pre-filled automatically.
             </p>
           </div>
         </CardContent>
       </Card>
-
-      {/* Plan cards */}
       {plansLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-96" />)}
@@ -165,22 +138,15 @@ export default function Billing() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans?.map((plan: any) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
+            <PlanCard key={plan.id} plan={plan}
               isCurrentPlan={!!(subscription?.planId === plan.id && subscription?.isActive)}
-              userEmail={userEmail}
-              userName={userName}
-            />
+              userEmail={userEmail} userName={userName} />
           ))}
         </div>
       )}
-
       <p className="text-center text-xs text-muted-foreground">
-        Payments secured by Razorpay — India's most trusted payment gateway. No hidden charges.
+        Payments secured by Razorpay — India's most trusted payment gateway.
       </p>
-
-      {/* Credits History */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Credits History</CardTitle>
@@ -207,7 +173,7 @@ export default function Billing() {
                 </thead>
                 <tbody>
                   {creditHistory.map((tx: any) => (
-                    <tr key={tx.id} className="border-b hover:bg-muted/30" data-testid={`row-credit-${tx.id}`}>
+                    <tr key={tx.id} className="border-b hover:bg-muted/30">
                       <td className="py-2 px-3 text-foreground">{tx.description}</td>
                       <td className="py-2 px-3">
                         <Badge className={tx.type === "credit"
@@ -216,15 +182,13 @@ export default function Billing() {
                           {tx.type === "credit" ? "Purchase" : "Used"}
                         </Badge>
                       </td>
-                      <td className="py-2 px-3 font-semibold" data-testid={`text-amount-${tx.id}`}>
+                      <td className="py-2 px-3 font-semibold">
                         <span className={tx.type === "credit" ? "text-green-600" : "text-red-600"}>
                           {tx.type === "credit" ? "+" : "-"}{tx.amount}
                         </span>
                       </td>
                       <td className="py-2 px-3 text-muted-foreground">
-                        {new Date(tx.createdAt).toLocaleDateString("en-IN", {
-                          day: "numeric", month: "short", year: "numeric"
-                        })}
+                        {new Date(tx.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                       </td>
                     </tr>
                   ))}
