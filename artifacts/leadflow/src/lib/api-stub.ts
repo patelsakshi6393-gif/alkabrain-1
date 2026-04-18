@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-// ─── Query key helpers ────────────────────────────────────────────────────────
+// ─── Query key helpers (ALL) ──────────────────────────────────────────────────
+export const getGetCampaignsQueryKey = () => ["/api/campaigns"] as const;
+export const getGetCampaignQueryKey = (id: string) => ["/api/campaigns", id] as const;
 export const getGetTemplatesQueryKey = () => ["/api/templates"] as const;
 export const getGetGmailIntegrationQueryKey = () => ["/api/integrations/gmail"] as const;
 export const getGetWhatsappStatusQueryKey = () => ["/api/integrations/whatsapp"] as const;
@@ -10,7 +12,10 @@ export const getHealthCheckQueryKey = () => ["/api/healthz"] as const;
 export function useGetDashboard() {
   return useQuery({
     queryKey: ["/api/dashboard"],
-    queryFn: async () => ({ totalCampaigns: 0, activeCampaigns: 0, totalLeads: 0, emailsSent: 0, creditsUsed: 0 }),
+    queryFn: async () => ({
+      totalCampaigns: 0, activeCampaigns: 0, totalLeads: 0,
+      emailsSent: 0, creditsUsed: 0, creditsRemaining: 0,
+    }),
     retry: false,
   });
 }
@@ -26,7 +31,7 @@ export function useGetMe() {
 // ─── Campaigns ────────────────────────────────────────────────────────────────
 export function useGetCampaigns() {
   return useQuery({
-    queryKey: ["/api/campaigns"],
+    queryKey: getGetCampaignsQueryKey(),
     queryFn: async () => [],
     retry: false,
   });
@@ -34,34 +39,38 @@ export function useGetCampaigns() {
 
 export function useGetCampaign(id: string) {
   return useQuery({
-    queryKey: ["/api/campaigns", id],
+    queryKey: getGetCampaignQueryKey(id),
     queryFn: async () => null,
     retry: false,
   });
 }
 
 export function useCreateCampaign() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: unknown) => data,
+    mutationFn: async (data: unknown) => ({ id: Date.now(), ...data as object }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: getGetCampaignsQueryKey() }),
   });
 }
 
 export function useUpdateCampaign() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: unknown) => data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: getGetCampaignsQueryKey() }),
   });
 }
 
 export function useDeleteCampaign() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: unknown) => id,
+    onSuccess: () => qc.invalidateQueries({ queryKey: getGetCampaignsQueryKey() }),
   });
 }
 
 export function useRunCampaign() {
-  return useMutation({
-    mutationFn: async (id: unknown) => id,
-  });
+  return useMutation({ mutationFn: async (id: unknown) => ({ id, status: "running" }) });
 }
 
 // ─── Templates ────────────────────────────────────────────────────────────────
@@ -76,7 +85,7 @@ export function useGetTemplates() {
 export function useCreateTemplate() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: unknown) => data,
+    mutationFn: async (data: unknown) => ({ id: Date.now(), ...data as object }),
     onSuccess: () => qc.invalidateQueries({ queryKey: getGetTemplatesQueryKey() }),
   });
 }
@@ -141,7 +150,7 @@ export function useGetWhatsappStatus() {
 export function useConnectWhatsapp() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (data: unknown) => ({ qrCode: null, message: "Backend required for WhatsApp" }),
+    mutationFn: async (data: unknown) => ({ qrCode: null }),
     onSuccess: () => qc.invalidateQueries({ queryKey: getGetWhatsappStatusQueryKey() }),
   });
 }
@@ -159,10 +168,14 @@ export function useGetBillingPlans() {
   return useQuery({
     queryKey: ["/api/billing/plans"],
     queryFn: async () => [
-      { id: "trial", name: "Trial", price: 5, credits: 30, isPopular: false, paymentUrl: null, features: ["30 credits", "3 days access", "Email campaigns", "Lead scraping"] },
-      { id: "monthly", name: "Monthly", price: 99, credits: 300, isPopular: false, paymentUrl: null, features: ["300 credits", "1 month access", "All features", "Priority support"] },
-      { id: "quarterly", name: "Quarterly", price: 249, credits: 1000, isPopular: true, paymentUrl: null, features: ["1000 credits", "3 months access", "All features", "Priority support"] },
-      { id: "yearly", name: "Yearly", price: 799, credits: 5000, isPopular: false, paymentUrl: null, features: ["5000 credits", "1 year access", "All features", "Dedicated support"] },
+      { id: "trial", name: "Trial", price: 5, credits: 30, isPopular: false, paymentUrl: null,
+        features: ["30 credits", "3 days access", "Email campaigns", "Lead scraping"] },
+      { id: "monthly", name: "Monthly", price: 99, credits: 300, isPopular: false, paymentUrl: null,
+        features: ["300 credits", "1 month access", "All features", "Priority support"] },
+      { id: "quarterly", name: "Quarterly", price: 249, credits: 1000, isPopular: true, paymentUrl: null,
+        features: ["1000 credits", "3 months access", "All features", "Priority support"] },
+      { id: "yearly", name: "Yearly", price: 799, credits: 5000, isPopular: false, paymentUrl: null,
+        features: ["5000 credits", "1 year access", "All features", "Dedicated support"] },
     ],
     retry: false,
   });
@@ -184,9 +197,7 @@ export function useGetCreditsHistory() {
   });
 }
 
-// ─── Health check (kept for compatibility) ────────────────────────────────────
-export function healthCheck() {
-  return fetch("/api/healthz").then(r => r.json());
-}
-
+// ─── Health (compatibility) ───────────────────────────────────────────────────
+export async function healthCheck() { return { status: "ok" }; }
 export { setBaseUrl, setAuthTokenGetter } from "./custom-fetch-stub";
+export type { AuthTokenGetter } from "./custom-fetch-stub";
