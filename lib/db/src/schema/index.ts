@@ -1,102 +1,123 @@
-import { pgTable, serial, text, integer, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable, serial, text, integer, boolean, timestamp, pgEnum,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const templateTypeEnum = pgEnum("template_type", ["email", "whatsapp"]);
-export const campaignStatusEnum = pgEnum("campaign_status", ["draft", "running", "completed", "failed"]);
-export const creditTypeEnum = pgEnum("credit_type", ["credit", "debit"]);
+export const campaignStatusEnum = pgEnum("campaign_status", [
+  "draft", "running", "paused", "completed", "failed",
+]);
 
+export const channelEnum = pgEnum("channel", ["email", "whatsapp", "both"]);
+
+// ─── Users ─────────────────────────────────────────────────────────────────
 export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
-  clerkId: text("clerk_id").notNull().unique(),
-  email: text("email").notNull(),
-  name: text("name"),
-  creditsRemaining: integer("credits_remaining").notNull().default(10),
-  creditsUsed: integer("credits_used").notNull().default(0),
-  planId: text("plan_id"),
-  planName: text("plan_name"),
-  planExpiresAt: timestamp("plan_expires_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  firebaseUid: text("firebase_uid").notNull().unique(),
+  email: text("email").notNull().unique(),
+  displayName: text("display_name"),
+  photoUrl: text("photo_url"),
+  credits: integer("credits").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertUser = z.infer<typeof insertUserSchema>;
+export type User = typeof usersTable.$inferSelect;
 
-export const templatesTable = pgTable("templates", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
-  name: text("name").notNull(),
-  type: templateTypeEnum("type").notNull(),
-  subject: text("subject"),
-  body: text("body").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
+// ─── Campaigns ─────────────────────────────────────────────────────────────
 export const campaignsTable = pgTable("campaigns", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  niche: text("niche").notNull(),
+  description: text("description"),
+  channel: channelEnum("channel").notNull().default("email"),
   status: campaignStatusEnum("status").notNull().default("draft"),
-  emailSubject: text("email_subject"),
-  emailBody: text("email_body"),
-  whatsappMessage: text("whatsapp_message"),
-  sendEmail: boolean("send_email").notNull().default(false),
-  sendWhatsapp: boolean("send_whatsapp").notNull().default(false),
+  templateId: integer("template_id"),
+  targetLocation: text("target_location"),
+  targetKeyword: text("target_keyword"),
   totalLeads: integer("total_leads").notNull().default(0),
-  emailsSent: integer("emails_sent").notNull().default(0),
-  whatsappSent: integer("whatsapp_sent").notNull().default(0),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  sentCount: integer("sent_count").notNull().default(0),
+  creditsUsed: integer("credits_used").notNull().default(0),
+  scheduledAt: timestamp("scheduled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+export const insertCampaignSchema = createInsertSchema(campaignsTable).omit({
+  id: true, createdAt: true, updatedAt: true, sentCount: true, creditsUsed: true,
+});
+export type InsertCampaign = z.infer<typeof insertCampaignSchema>;
+export type Campaign = typeof campaignsTable.$inferSelect;
 
+// ─── Templates ─────────────────────────────────────────────────────────────
+export const templatesTable = pgTable("templates", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  subject: text("subject"),
+  body: text("body").notNull(),
+  channel: channelEnum("channel").notNull().default("email"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+export const insertTemplateSchema = createInsertSchema(templatesTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+export type Template = typeof templatesTable.$inferSelect;
+
+// ─── Leads ─────────────────────────────────────────────────────────────────
+export const leadsTable = pgTable("leads", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  campaignId: integer("campaign_id"),
+  name: text("name"),
+  email: text("email"),
+  phone: text("phone"),
+  business: text("business"),
+  location: text("location"),
+  website: text("website"),
+  status: text("status").notNull().default("new"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export const insertLeadSchema = createInsertSchema(leadsTable).omit({ id: true, createdAt: true });
+export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type Lead = typeof leadsTable.$inferSelect;
+
+// ─── Gmail Integrations ────────────────────────────────────────────────────
 export const gmailIntegrationsTable = pgTable("gmail_integrations", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id).unique(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }).unique(),
   senderEmail: text("sender_email").notNull(),
-  appPasswordEncrypted: text("app_password_encrypted").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  senderName: text("sender_name"),
+  appPassword: text("app_password").notNull(),
+  isConnected: boolean("is_connected").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+export const insertGmailIntegrationSchema = createInsertSchema(gmailIntegrationsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertGmailIntegration = z.infer<typeof insertGmailIntegrationSchema>;
+export type GmailIntegration = typeof gmailIntegrationsTable.$inferSelect;
 
-export const whatsappSessionsTable = pgTable("whatsapp_sessions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id).unique(),
-  sessionData: text("session_data"),
-  phone: text("phone"),
-  isConnected: boolean("is_connected").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
+// ─── Subscriptions ─────────────────────────────────────────────────────────
 export const subscriptionsTable = pgTable("subscriptions", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
   planId: text("plan_id").notNull(),
   planName: text("plan_name").notNull(),
-  status: text("status").notNull().default("active"),
-  transactionId: text("transaction_id"),
-  expiresAt: timestamp("expires_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  credits: integer("credits").notNull(),
+  price: integer("price").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 });
-
-export const creditTransactionsTable = pgTable("credit_transactions", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
-  type: creditTypeEnum("type").notNull(),
-  amount: integer("amount").notNull(),
-  description: text("description").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertTemplateSchema = createInsertSchema(templatesTable).omit({ id: true, createdAt: true, updatedAt: true });
-export const insertCampaignSchema = createInsertSchema(campaignsTable).omit({ id: true, createdAt: true, updatedAt: true });
-
-export type User = typeof usersTable.$inferSelect;
-export type Template = typeof templatesTable.$inferSelect;
-export type Campaign = typeof campaignsTable.$inferSelect;
-export type GmailIntegration = typeof gmailIntegrationsTable.$inferSelect;
-export type WhatsappSession = typeof whatsappSessionsTable.$inferSelect;
 export type Subscription = typeof subscriptionsTable.$inferSelect;
-export type CreditTransaction = typeof creditTransactionsTable.$inferSelect;
+
+// ─── Credits History ───────────────────────────────────────────────────────
+export const creditsHistoryTable = pgTable("credits_history", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type CreditsHistory = typeof creditsHistoryTable.$inferSelect;
