@@ -4,15 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
 
-    <!-- GitHub Pages SPA redirect handler -->
-    <script>
-      (function(l){
-        if (l.search[1] === 'p' && l.search[2] === '=') {
-          var parts = l.search.slice(1).split('&');
-          var path = parts[0].slice(2).replace(/~and~/g,'&');
-          var query = parts[1] ? '?' + parts[1].slice(2).replace(/~and~/g,'&') : '';
+    <!-- spa-github-pages redirect handler -->
+    <!-- https://github.com/rafgraph/spa-github-pages -->
+    <script type="text/javascript">
+      (function(l) {
+        if (l.search[1] === '/' ) {
+          var decoded = l.search.slice(1).split('&').map(function(s) {
+            return s.replace(/~and~/g, '&')
+          }).join('?');
           window.history.replaceState(null, null,
-            l.pathname + (path ? path : '') + query + l.hash
+            l.pathname.slice(0, -1) + decoded + l.hash
           );
         }
       }(window.location));
@@ -20,7 +21,7 @@
 
     <!-- Primary SEO -->
     <title>ALKABRAIN – AI Marketing Automation for Indian SMBs</title>
-    <meta name="description" content="ALKABRAIN is India's most powerful AI marketing automation platform. Find leads automatically, send bulk emails via Gmail, run WhatsApp campaigns — all in one place. Built for Indian SMBs. Start for just ₹5." />
+    <meta name="description" content="ALKABRAIN is India's most powerful AI marketing automation platform. Find leads automatically, send bulk emails via Gmail, run WhatsApp campaigns — all in one place. Built for Indian SMBs. Start for just Rs.5." />
     <meta name="keywords" content="ALKABRAIN, alkabrain, AI marketing automation India, lead generation software India, WhatsApp marketing automation, bulk email sender India, SMB marketing tool" />
     <meta name="author" content="ALKABRAIN" />
     <meta name="robots" content="index, follow" />
@@ -28,11 +29,11 @@
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="ALKABRAIN" />
-    <meta property="og:title" content="ALKABRAIN – AI Marketing Automation for Indian SMBs" />
+    <meta property="og:title" content="ALKABRAIN - AI Marketing Automation for Indian SMBs" />
     <meta property="og:description" content="Find local business leads, send bulk emails, and run WhatsApp campaigns automatically." />
     <meta property="og:locale" content="en_IN" />
 
-    <!-- Favicon (paths handled by Vite base URL) -->
+    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="apple-touch-icon" href="logo.png" />
 
