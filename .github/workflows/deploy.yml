@@ -1,8 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy ALKABRAIN to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -11,7 +12,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: false
 
 jobs:
@@ -21,31 +22,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build
-        working-directory: artifacts/leadflow
-        run: pnpm exec vite build --config vite.config.pages.ts
+      - name: Build ALKABRAIN
+        run: cd artifacts/alkabrain && npx vite build --config vite.config.pages.ts
         env:
+          NODE_ENV: production
           BASE_PATH: /alkabrain-1/
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Add SPA 404 redirect
+        run: cp artifacts/alkabrain/dist/index.html artifacts/alkabrain/dist/404.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: artifacts/leadflow/dist/public
+          path: artifacts/alkabrain/dist
 
   deploy:
     environment:
